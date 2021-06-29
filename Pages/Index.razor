@@ -1,0 +1,153 @@
+﻿@page "/"
+@using Excubo.Blazor.Canvas
+@using Excubo.Blazor.Canvas.Contexts
+@using System.Timers
+
+@implements IDisposable
+
+@inject IJSRuntime Js
+
+<div style="margin-bottom: 10px;">
+    <button @onclick="Toggle">@(timer.Enabled ? "Stop" : "Start")</button>
+    <button @onclick="StepOnce">Step</button>
+    <button @onclick="Randomize">Randomize</button>
+    <button @onclick="Clear">Clear</button>
+    <br/>
+    <label>Update interval: </label><input type="range" @bind-value="timer.Interval" @bind-value:event="oninput" min="20" max="1000" /> @(timer.Interval)ms
+    <br/>
+    <span style="font-size: .75rem;">Click on the canvas to toggle cells</span>
+</div>
+
+<Canvas id="canvas" width="@(columns * cellSize)" height="@(rows * cellSize)" @ref="canvas"></Canvas>
+
+@code {
+    private Canvas canvas;
+    private Context2D context;
+    private Timer timer = new Timer(50);
+
+    private int columns = 50, rows = 25;
+    private int cellSize = 25;
+    private bool[,] cells;
+
+    private DotNetObjectReference<Index> objectReference;
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectReference = DotNetObjectReference.Create(this);
+
+        cells = InitializeCells();
+
+        timer.Elapsed += async (e, a) => await StepOnce();
+
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Js.InvokeVoidAsync("attachCanvasClickListener", objectReference, "canvas");
+            
+            context = await canvas.GetContext2DAsync();
+            await context.FillStyleAsync("black");
+
+            await Draw();
+        }
+    }
+
+    private int CountNeighbors(int x, int y)
+    {
+        int res = -Convert.ToInt32(cells[x,y]);
+
+        for (int j = y - 1; j <= y + 1; j++)
+        {
+            for (int i = x - 1; i <= x + 1; i++)
+            {
+                res += Convert.ToInt32(cells[(i + columns) % columns, (j + rows) % rows]);
+            }
+        }
+        return res;
+    }
+
+    private bool[,] InitializeCells(Func<bool> value = null) {
+        bool[,] array = new bool[columns, rows];
+        unsafe {
+            fixed (bool* ptr = array) {
+                for (int i = 0; i < columns * rows; ++i)
+                    ptr[i] = value?.Invoke() ?? false;
+            }
+        }
+        return array;
+    }
+
+    private async Task Draw()
+    {
+        await using var batch = context.CreateBatch();
+        await batch.ClearRectAsync(0, 0, columns * cellSize, rows * cellSize);
+
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < columns; x++)
+            {
+                if (cells[x,y])
+                {
+                    await batch.FillRectAsync(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+    }
+
+    private void Step()
+    {
+        var nextCells = InitializeCells();
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < columns; x++)
+            {
+                bool state = cells[x,y];
+
+                nextCells[x, y] = CountNeighbors(x, y) switch
+                {
+                    3 => true,
+                    < 2 or > 3 => false,
+                    _ => state
+                };
+            }
+        }
+        cells = nextCells;
+    }
+
+    [JSInvokable]
+    public async Task ToggleCell(int xPos, int yPos)
+    {
+        var (x, y) = ((int)Math.Floor(xPos / (float)cellSize), (int)Math.Floor(yPos / (float)cellSize));
+        cells[x, y] = !cells[x, y];
+        await Draw();
+    }
+
+    private void Toggle()
+    {
+        timer.Enabled = !timer.Enabled;
+    }
+    private async Task StepOnce()
+    {
+        Step();
+        await Draw();
+    }
+    private async Task Randomize()
+    {
+        var r = new Random();
+        cells = InitializeCells(() => r.NextDouble() > .75);
+        await Draw();
+    }
+    private async Task Clear()
+    {
+        cells = InitializeCells();
+        await Draw();
+    }
+
+    void IDisposable.Dispose()
+    {
+        objectReference?.Dispose();
+    }
+}
