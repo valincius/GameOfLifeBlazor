@@ -19,9 +19,9 @@ jobs:
         dotnet-version: '6.0.x'
         include-prerelease: true
     - run: dotnet build
-    - run: dotnet publish ConwaysGameOfLifeBlazorWASM.csproj -c Release -o release --nologo
+    - run: dotnet publish ConwaysGameOfLife.csproj -c Release -o release --nologo
         
-    # changes the base-tag in index.html from '/' to 'BlazorGitHubPagesDemo' to match GitHub Pages repository subdirectory
+    # changes the base-tag in index.html from '/' to 'GameOfLifeBlazor' to match GitHub Pages repository subdirectory
     - name: Change base-tag in index.html from / to GameOfLifeBlazor
       run: sed -i 's/<base href="\/" \/>/<base href="\/GameOfLifeBlazor\/" \/>/g' release/wwwroot/index.html
     
