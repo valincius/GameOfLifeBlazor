@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ConwaysGameOfLife</title>
+    <base href="/GameOfLifeBlazor/" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="ConwaysGameOfLife.styles.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">Loading...</div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+
+    <script>
+        window.attachCanvasClickListener = function (dotnetObj, elemId) {
+            let canvas = document.getElementById(elemId);
+
+            canvas.addEventListener('click', function(event) {
+                let rect = canvas.getBoundingClientRect();
+                let x = Math.floor(event.clientX - rect.left);
+                let y = Math.floor(event.clientY - rect.top);
+
+                console.log(`Clicked at ${x}, ${y}`);
+                dotnetObj.invokeMethodAsync('ToggleCell', x, y);
+            }, false);
+        }
+    </script>
+</body>
+
+</html>
